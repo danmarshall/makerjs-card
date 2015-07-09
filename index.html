@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <title>Makerjs card</title>
+    <meta http-equiv="refresh" content="3" />
+
+    <script>
+        var module = {};
+
+        function require(lib) {
+            switch (lib) {
+                case 'makerjs':
+                    return MakerJs;
+                case 'makerjs-logo':
+                    return logo;
+                case 'makerjs-monotext':
+                    return monotext;
+            }
+        }
+    </script>
+
+<script src="node_modules/makerjs/index.js"></script>
+<script src="node_modules/makerjs-logo/index.js"></script>
+<script src="node_modules/makerjs-monotext/index.js"></script>
+<script src="index.js"></script>
+
+</head>
+<body>
+
+    <script>
+        var model = new card();
+        var svg = makerjs.exporter.toSVG(model);
+        document.write(svg);
+    </script>
+</body>
+</html>
