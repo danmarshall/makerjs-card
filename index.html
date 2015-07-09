@@ -28,8 +28,22 @@
 <body>
 
     <script>
-        var model = new card();
-        var svg = makerjs.exporter.toSVG(model);
+        function sheet() {
+            this.units = makerjs.unitType.Millimeter;
+            this.id = 'sheet';
+            this.models = [];
+
+            var d = 3;
+
+            for (var i = 0; i < 6; i++) {
+                var c = makerjs.model.scale(new card(), .75);
+                c.origin = [0, 49 * i];
+                this.models.push(c);
+            }
+
+        }
+
+        var svg = makerjs.exporter.toSVG(new sheet());
         document.write(svg);
     </script>
 </body>

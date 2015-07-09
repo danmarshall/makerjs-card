@@ -5,10 +5,10 @@ var makerjs_monotext = require('makerjs-monotext');
 function card() {
     this.units = makerjs.unitType.Millimeter;
 
-	var w = 90;
-	var h = 70;
+	var w = 70;
+	var h = 60;
 	var rim = 4;
-	var conn = 2;
+	var conn = 3;
 
 	var innerW = w - 2 * rim;
 	var innerH = h - 2 * rim;
@@ -41,19 +41,19 @@ function card() {
 
 	var outer = new makerjs.models.RoundRectangle('outer', w, h, 4);
 
-	var bolts = new makerjs.models.BoltRectangle('bolts', w - 2 * rim, h - 2 * rim, 2);
+	var bolts = new makerjs.models.BoltRectangle('bolts', w - 2 * rim, h - 2 * rim, 1.5);
 	bolts.origin = [rim, rim];
 
 
-	var logo = makerjs.model.scale(new makerjs_logo(), 4);
-	hCenter(logo, 21);
+	var logo = makerjs.model.scale(new makerjs_logo(), 3.4);
+	hCenter(logo, 17);
 
-	var text = makerjs.model.scale(new makerjs_monotext('MAKERJS.ORG'), .04);
-	var textW = hCenter(text, 5);
+	var text = makerjs.model.scale(new makerjs_monotext('MAKERJS.ORG'), .03);
+	var textW = hCenter(text, 4);
 
 	var tabR = 1.5;
 	var tabW = textW + 7;
-	var tab = new makerjs.models.RoundRectangle('inner', tabW, 13, tabR);
+	var tab = new makerjs.models.RoundRectangle('inner', tabW, 10, tabR);
 	hCenter(tab, rim - tabR);
 
 	makerjs.removeById(tab.paths, 'BottomLeft');
@@ -91,10 +91,10 @@ function card() {
     bridge(this, inner, 'Left', .45, logo, 'outHome', .5);
 
     var legH = makerjs.findById(makerjs.findById(logo.models, 'leg1').item.models, 'leg1b3').item
-    bridge(this, inner, 'Top', .655, legH, 'Horizontal', .5);
+    bridge(this, inner, 'Top', .67, legH, 'Horizontal', .5);
 
     var legV = makerjs.findById(makerjs.findById(logo.models, 'leg3').item.models, 'leg3b3').item;
-    bridge(this, inner, 'Right', .325, legV, 'Vertical', .5);
+    bridge(this, inner, 'Right', .28, legV, 'Vertical', .5);
 
 }
 
