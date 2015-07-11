@@ -5,10 +5,10 @@ var makerjs_monotext = require('makerjs-monotext');
 function card() {
     this.units = makerjs.unitType.Millimeter;
 
-	var w = 70;
+	var w = 75;
 	var h = 60;
 	var rim = 4;
-	var conn = 3;
+	var conn = 2.75;
 
 	var innerW = w - 2 * rim;
 	var innerH = h - 2 * rim;
@@ -25,8 +25,7 @@ function card() {
 	function flipArcs(roundRect) {
 
 	    function findAndFlip(arcId, origin) {
-	        var find = makerjs.findById(roundRect.paths, arcId);
-	        var arc = find.item;
+	        var arc = roundRect.paths[arcId];
 	        arc.startAngle = makerjs.angle.mirror(arc.startAngle, true, true);
 	        arc.endAngle = makerjs.angle.mirror(arc.endAngle, true, true);
 	        arc.origin = origin;
@@ -38,63 +37,110 @@ function card() {
 	    findAndFlip('TopRight', [innerW, innerH]);
 
 	}
+	
+	function doubleLine(model, pathId) {
+		var line = model.paths[pathId];
+		model.paths[pathId + '2'] = new makerjs.paths.Line(line.origin, line.end);		
+	}
 
-	var outer = new makerjs.models.RoundRectangle('outer', w, h, 4);
+	function trimLines(line1, line1prop, line2, line2prop) {
+		var intersection = makerjs.tools.pathIntersection(line1, line2);
+		var point = intersection.intersectionPoints[0];
 
-	var bolts = new makerjs.models.BoltRectangle('bolts', w - 2 * rim, h - 2 * rim, 1.5);
+		line1[line1prop] = point;
+		line2[line2prop] = point;
+	}
+	
+	function trimArcAndLine(arc, arcProp, line, lineProp) {
+		var intersection = makerjs.tools.pathIntersection(arc, line);
+		arc[arcProp] = intersection.path1Angles[0];
+		line[lineProp] = intersection.intersectionPoints[0];		
+	}
+	
+	var outer = new makerjs.models.RoundRectangle(w, h, 4);
+
+	var bolts = new makerjs.models.BoltRectangle(w - 2 * rim, h - 2 * rim, 1.5);
 	bolts.origin = [rim, rim];
 
 
-	var logo = makerjs.model.scale(new makerjs_logo(), 3.4);
+	var logo = makerjs.model.scale(new makerjs_logo(1.06, .3, .35, 1.3, 8.3, .65, 19.01, 1, 2.7, 1.32, 2.31), 3.33);
 	hCenter(logo, 17);
 
 	var text = makerjs.model.scale(new makerjs_monotext('MAKERJS.ORG'), .03);
-	var textW = hCenter(text, 4);
+	var textW = hCenter(text, 3.5);
 
 	var tabR = 1.5;
 	var tabW = textW + 7;
-	var tab = new makerjs.models.RoundRectangle('inner', tabW, 10, tabR);
+	var tab = new makerjs.models.RoundRectangle(tabW, 9.5, tabR);
 	hCenter(tab, rim - tabR);
 
-	makerjs.removeById(tab.paths, 'BottomLeft');
-	makerjs.removeById(tab.paths, 'Bottom');
-	makerjs.removeById(tab.paths, 'BottomRight');
+	delete tab.paths['BottomLeft'];
+	delete tab.paths['Bottom'];
+	delete tab.paths['BottomRight'];
 
-	var inner = new makerjs.models.RoundRectangle('inner', innerW, innerH, rim);
+	var inner = new makerjs.models.RoundRectangle(innerW, innerH, rim);
 	inner.origin = [rim, rim];
 	flipArcs(inner);
 
-	makerjs.removeById(inner.paths, 'Bottom');
+	var plus = {
+		origin: [(w - conn) / 2, (h - conn) / 2],
+		paths: {
+			n1: new makerjs.paths.Line([0, 0], [0, h]),
+			n2: new makerjs.paths.Line([conn, 0], [conn, h]),
+			s1: new makerjs.paths.Line([0, -h], [0, 0]),
+			s2: new makerjs.paths.Line([conn, -h], [conn, 0]),
+			w1: new makerjs.paths.Line([-w, 0], [0, 0]),
+			w2: new makerjs.paths.Line([-w, conn], [0, conn]),
+			e1: new makerjs.paths.Line([0, 0], [w, 0]),
+			e2: new makerjs.paths.Line([0, conn], [w, conn])
+		}
+	}
+	
+	makerjs.model.rotate(plus, -19.01, plus.origin);
 
-	this.models = [
-		logo, text, outer, bolts, inner, tab
-	];
+	this.models = {
+		logo: logo, text: text, outer: outer, bolts: bolts, inner: inner, tab: tab, plus: plus
+	};
 
 	makerjs.model.originate(this);
 
-	var bottom1 = new makerjs.paths.Line('bottom1', [2 * rim, rim], [rim + (innerW - tabW) / 2, rim]);
-    var bottom2 = new makerjs.paths.Line('bottom2', makerjs.point.add(bottom1.end, [tabW, 0]), [innerW ,rim])
+	doubleLine(tab, 'Top');
+	doubleLine(inner, 'Top');
+	doubleLine(inner, 'Left');
+	doubleLine(inner, 'Right');
+	doubleLine(logo, 'outHome');
+	doubleLine(logo, 'outBottom');
+	doubleLine(logo.models.leg3.models.b3, 'Vertical');
 
-    this.paths = [
-        bottom1, bottom2
-    ];
+	trimLines(plus.paths.n1, 'origin', logo.models.leg2.models.b3.paths.Horizontal, 'end');
+	trimLines(plus.paths.n1, 'end', inner.paths.Top, 'origin');
+	trimLines(plus.paths.n2, 'end', inner.paths.Top2, 'end');
+	trimArcAndLine(logo.models.leg2.models.b3.paths.arc, 'endAngle', plus.paths.n2, 'origin');
 
-    function bridge(main, m1, idm1, b1, m2, idm2, b2) {
-        var gap1 = makerjs.tools.gapPath(m1, idm1, conn, b1);
-        var gap2 = makerjs.tools.gapPath(m2, idm2, conn, b2);
-        var bridge = makerjs.tools.bridgeGaps(gap1, gap2);
+	trimLines(plus.paths.e1, 'origin', logo.models.leg3.models.b3.paths.Vertical, 'end');
+	trimLines(plus.paths.e1, 'end', inner.paths.Right, 'end');
+	trimLines(plus.paths.e2, 'origin', logo.models.leg3.models.b3.paths.Vertical2, 'origin');
+	trimLines(plus.paths.e2, 'end', inner.paths.Right2, 'origin');
+	
+	trimLines(plus.paths.w1, 'end', logo.paths.outHome, 'end');
+	trimLines(plus.paths.w1, 'origin', inner.paths.Left, 'origin');
+	trimLines(plus.paths.w2, 'end', logo.paths.outHome2, 'origin');
+	trimLines(plus.paths.w2, 'origin', inner.paths.Left2, 'end');
 
-        main.paths = main.paths.concat(bridge);
-    }
+	trimLines(plus.paths.s1, 'origin', tab.paths.Top, 'origin');
+	trimLines(plus.paths.s1, 'end', logo.paths.outBottom, 'end');
+	trimLines(plus.paths.s2, 'end', logo.paths.outBottom2, 'origin');
+	trimLines(plus.paths.s2, 'origin', tab.paths.Top2, 'end');
+	
+	var bottom1 = new makerjs.paths.Line(inner.paths['Bottom'].origin, tab.paths['Left'].end);
+    var bottom2 = new makerjs.paths.Line(inner.paths['Bottom'].end, tab.paths['Right'].origin)
 
-    bridge(this, tab, 'Top', .53, logo, 'outBottom', .545);
-    bridge(this, inner, 'Left', .45, logo, 'outHome', .5);
+	delete inner.paths['Bottom'];
 
-    var legH = makerjs.findById(makerjs.findById(logo.models, 'leg1').item.models, 'leg1b3').item
-    bridge(this, inner, 'Top', .67, legH, 'Horizontal', .5);
-
-    var legV = makerjs.findById(makerjs.findById(logo.models, 'leg3').item.models, 'leg3b3').item;
-    bridge(this, inner, 'Right', .28, legV, 'Vertical', .5);
+    this.paths = {
+        bottom1: bottom1, 
+		bottom2: bottom2
+	};
 
 }
 

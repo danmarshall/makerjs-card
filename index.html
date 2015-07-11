@@ -4,6 +4,13 @@
     <title>Makerjs card</title>
     <meta http-equiv="refresh" content="3" />
 
+    <style>
+        svg {
+            height: 670px;
+            width: 100%;
+        }
+    </style>
+    
     <script>
         var module = {};
 
@@ -43,7 +50,7 @@
 
         }
 
-        var svg = makerjs.exporter.toSVG(new sheet());
+        var svg = makerjs.exporter.toSVG(new card());
         document.write(svg);
     </script>
 </body>

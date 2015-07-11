@@ -1,6 +1,6 @@
 {
   "name": "makerjs-card",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A business card for Maker.js",
   "main": "index.js",
   "scripts": {
@@ -20,8 +20,8 @@
   },
   "homepage": "https://github.com/danmarshall/makerjs-card",
   "dependencies": {
-    "makerjs": "^0.1.5",
-    "makerjs-logo": "^1.0.0",
-    "makerjs-monotext": "^1.0.0"
+    "makerjs": "^0.2.0",
+    "makerjs-logo": "^1.1.0",
+    "makerjs-monotext": "^1.2.2"
   }
 }
