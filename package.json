@@ -20,8 +20,9 @@
   },
   "homepage": "https://github.com/danmarshall/makerjs-card",
   "dependencies": {
-    "makerjs": "^0.2.0",
-    "makerjs-logo": "^1.1.0",
+    "double-bisection": "^1.0.0",
+    "makerjs": "^0.2.1",
+    "makerjs-logo": "^1.1.1",
     "makerjs-monotext": "^1.2.2"
   }
 }
