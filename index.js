@@ -3,29 +3,30 @@ var makerjs_logo = require('makerjs-logo');
 var makerjs_monotext = require('makerjs-monotext');
 var doubleBisection = require('double-bisection');
 
-function card() {
-    this.units = makerjs.unitType.Millimeter;
-	this.paths = {};
-	
-	var w = 75;
-	var h = 60;
-	var outerRadius = 4;
-	var rim = 4;
-	var conn = 2.75;
-	var logoOutline = 1.3;
-	var logoY = 17;
-	var logoAngle = 19.01;
-	var tabMargin = 7;
-	var tabHeight = 9.5;
-	var tabR = 1.5;
-	var textY = 3.5;
-	var textScale = .03;
-	var logoScale = 3.33;
-	var boltRadius = 1.5;
-	
-	var innerW = w - 2 * rim;
-	var innerH = h - 2 * rim;
+function card(w, h, outerRadius, rim, boltRadius, conn, logoOutline, logoScale, logoY, logoAngle, textScale, textY, tabMargin, tabHeight, tabR ) {
 
+	if (arguments.length == 0) {    
+		var defaultValues = makerjs.kit.getParameterValues(card);
+		function v() { 
+			return defaultValues.shift();
+		}
+		w = v();
+		h = v();
+		outerRadius = v();
+		rim = v();
+		boltRadius = v();
+		conn = v();
+		logoOutline = v();
+		logoScale = v();
+		logoY = v();
+		logoAngle = v();
+		textScale = v();
+		textY = v();
+		tabMargin = v();
+		tabHeight = v();
+		tabR = v();
+	}
+	
 	function hCenter(model, y) {
 
 	    var measure = makerjs.measure.modelExtents(model);
@@ -48,35 +49,49 @@ function card() {
 	    findAndFlip('BottomRight', [innerW, 0]);
 	    findAndFlip('TopLeft', [0, innerH]);
 	    findAndFlip('TopRight', [innerW, innerH]);
-
 	}
 	
 	function trimLines(line1, line1prop, line2, line2prop) {
 		var intersection = makerjs.path.intersection(line1, line2);
-		var point = intersection.intersectionPoints[0];
-
-		line1[line1prop] = point;
-		line2[line2prop] = point;
-		
-		return point;
+		if (intersection) {
+			var point = intersection.intersectionPoints[0];
+	
+			return {
+				create: function () {
+					line1[line1prop] = point;
+					line2[line2prop] = point;
+				},
+				point: point 
+			};
+		}
 	}
 	
 	function trimArcAndLine(arc, arcProp, line, lineProp) {
 		var intersection = makerjs.path.intersection(arc, line);
-		var point = intersection.intersectionPoints[0];
-
-		arc[arcProp] = intersection.path1Angles[0];
-		line[lineProp] = point;
-		
-		return point;
+		if (intersection) {
+			var point = intersection.intersectionPoints[0];
+			return {
+				create: function() {
+					arc[arcProp] = intersection.path1Angles[0];
+					line[lineProp] = point;
+				},
+				point: point
+			};
+		}
 	}
 	
 	function gap(paths, prop, lines) {
 		var sections = doubleBisection(paths[prop], lines);
-		delete paths[prop];
-		paths[prop + '1'] = sections[0];
-		paths[prop + '2'] = sections[2];
-		return [sections[1].origin, sections[1].end];
+		if (sections) {
+			return {
+				create: function () {
+					delete paths[prop];
+					paths[prop + '1'] = sections[0];
+					paths[prop + '2'] = sections[2];
+				}, 
+				points: [sections[1].origin, sections[1].end] 
+			};
+		}
 	}
 
     function bridgeGaps(gap1, gap2) {
@@ -96,17 +111,23 @@ function card() {
         return lines;
     }
 
-	function gapAndBridge(paths1, prop1, paths2, prop2, paths3, prop3, prop4){
-		gap(paths1, prop1, [paths3[prop3], paths3[prop4]]);
-		gap(paths2, prop2, [paths3[prop3], paths3[prop4]]);
+	function gapAndBridge(model1, pathId1, model2, pathId2, lineModel, lineIds){
+		var lines = [
+			lineModel.paths[lineIds[0]], 
+			lineModel.paths[lineIds[1]]
+		];
+		var gap1 = gap(model1.paths, pathId1, lines);
+		var gap2 = gap(model2.paths, pathId2, lines);
 	
-		var b1 = bridgeGaps(
-			[paths1[prop1 + 1].end, paths1[prop1 + 2].origin],
-			[paths2[prop2 + 1].end, paths2[prop2 + 2].origin]
-		);
-		
-		paths1[prop3] = b1[0];
-		paths1[prop4] = b1[1];	
+		if (gap1 && gap2) {
+			gap1.create();
+			gap2.create();
+			
+			var bridge = bridgeGaps(gap1.points, gap2.points);
+			
+			model1.paths[lineIds[0]] = bridge[0];
+			model1.paths[lineIds[1]] = bridge[1];
+		}
 	}
 		
 	var outer = new makerjs.models.RoundRectangle(w, h, outerRadius);
@@ -128,10 +149,15 @@ function card() {
 	delete tab.paths['Bottom'];
 	delete tab.paths['BottomRight'];
 
+	var innerW = w - 2 * rim;
+	var innerH = h - 2 * rim;
+
 	var inner = new makerjs.models.RoundRectangle(innerW, innerH, rim);
 	inner.origin = [rim, rim];
 	flipArcs(inner);
 
+	this.units = makerjs.unitType.Millimeter;
+	this.paths = {};
 	this.models = {
 		logo: logo, text: text, outer: outer, bolts: bolts, inner: inner, tab: tab
 	};
@@ -167,14 +193,39 @@ function card() {
  	var p2 = trimArcAndLine(logo.models.leg2.models.b3.paths.arc, 'endAngle', plus.paths.n2, 'origin');
 	var g1 = gap(inner.paths, 'Top', [plus.paths.n1, plus.paths.n2]);
 
-	var b1 = bridgeGaps([p1, p2], g1);
-	inner.paths['n1'] = b1[0];
-	inner.paths['n2'] = b1[1];	
+	if (p1 && p2 && g1) {
+		p1.create();
+		p2.create();
+		g1.create();
+		var b1 = bridgeGaps([p1.point, p2.point], g1.points);
+		inner.paths['n1'] = b1[0];
+		inner.paths['n2'] = b1[1];	
+	} else {
+		gapAndBridge(inner, 'Top', logo.models.leg2.models.b3, 'Horizontal', plus, ['n1', 'n2']);	
+	}
 	
-	gapAndBridge(tab.paths, 'Top', logo.paths, 'outBottom', plus.paths, 's1', 's2');
-	gapAndBridge(inner.paths, 'Left', logo.paths, 'outHome', plus.paths, 'w1', 'w2');
-	gapAndBridge(inner.paths, 'Right', logo.models.leg3.models.b3.paths, 'Vertical', plus.paths, 'e1', 'e2');
+	gapAndBridge(tab, 'Top', logo, 'outBottom', plus, ['s1', 's2']);
+	gapAndBridge(inner, 'Left', logo, 'outHome', plus, ['w1', 'w2']);
+	gapAndBridge(inner, 'Right', logo.models.leg3.models.b3, 'Vertical', plus, ['e1', 'e2']);
 
 }
+
+card.metaParameters = [
+    { title: "width", type: "range", min: 30, max: 200, value: 75 },
+    { title: "height", type: "range", min: 30, max: 200, value: 60 },
+    { title: "outer radius", type: "range", min: 0, max: 10, step: .5, value: 4 },
+    { title: "rim", type: "range", min: 1, max: 10, step: .5, value: 4 },
+    { title: "bolt radius", type: "range", min: 0, max: 5, step: .1, value: 1.5 },
+    { title: "connector width", type: "range", min: .5, max: 5, step: .1, value: 2.75 },
+    { title: "logo outline", type: "range", min: .3, max: 3, step: .1, value: 1.3 },
+    { title: "logo scale", type: "range", min: 1, max: 6, step: .1, value: 3.33 },
+    { title: "logo y-offset", type: "range", min: 0, max: 30, step: 1, value: 17 },
+    { title: "logo angle", type: "range", min: 0, max: 45, step: 1, value: 19 },
+    { title: "text scale", type: "range", min: .005, max: .05, step: .001, value: .03 },
+    { title: "text y-offset", type: "range", min: 0, max: 10, step: .1, value: 3.5 },
+    { title: "text margin", type: "range", min: 1, max: 10, step: .1, value: 7 },
+    { title: "tab height", type: "range", min: 2, max: 15, step: .5, value: 9.5 },
+    { title: "tab radius", type: "range", min: 0, max: 2, step: .1, value: 1.5 },
+];
 
 module.exports = card;
