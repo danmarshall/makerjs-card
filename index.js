@@ -1,7 +1,6 @@
 var makerjs = require('makerjs');
 var makerjs_logo = require('makerjs-logo');
 var makerjs_monotext = require('makerjs-monotext');
-var doubleBisection = require('double-bisection');
 
 function card(w, h, outerRadius, rim, boltRadius, conn, logoOutline, logoScale, logoY, logoAngle, textScale, textY, tabMargin, tabHeight, tabR ) {
 
@@ -51,85 +50,6 @@ function card(w, h, outerRadius, rim, boltRadius, conn, logoOutline, logoScale, 
 	    findAndFlip('TopRight', [innerW, innerH]);
 	}
 	
-	function trimLines(line1, line1prop, line2, line2prop) {
-		var intersection = makerjs.path.intersection(line1, line2);
-		if (intersection) {
-			var point = intersection.intersectionPoints[0];
-	
-			return {
-				create: function () {
-					line1[line1prop] = point;
-					line2[line2prop] = point;
-				},
-				point: point 
-			};
-		}
-	}
-	
-	function trimArcAndLine(arc, arcProp, line, lineProp) {
-		var intersection = makerjs.path.intersection(arc, line);
-		if (intersection) {
-			var point = intersection.intersectionPoints[0];
-			return {
-				create: function() {
-					arc[arcProp] = intersection.path1Angles[0];
-					line[lineProp] = point;
-				},
-				point: point
-			};
-		}
-	}
-	
-	function gap(paths, prop, lines) {
-		var sections = doubleBisection(paths[prop], lines);
-		if (sections) {
-			return {
-				create: function () {
-					delete paths[prop];
-					paths[prop + '1'] = sections[0];
-					paths[prop + '2'] = sections[2];
-				}, 
-				points: [sections[1].origin, sections[1].end] 
-			};
-		}
-	}
-
-    function bridgeGaps(gap1, gap2) {
-        var lines = [];
-
-        for (var i = 2; i--;) {
-            lines.push(new makerjs.paths.Line(gap1[i], gap2[i]));
-        }
-
-        if (makerjs.path.intersection(lines[0], lines[1])) {
-            //swap endpoints
-            for (var i = 2; i--;) {
-                lines[i].end = gap2[i];
-            }
-        }
-
-        return lines;
-    }
-
-	function gapAndBridge(model1, pathId1, model2, pathId2, lineModel, lineIds){
-		var lines = [
-			lineModel.paths[lineIds[0]], 
-			lineModel.paths[lineIds[1]]
-		];
-		var gap1 = gap(model1.paths, pathId1, lines);
-		var gap2 = gap(model2.paths, pathId2, lines);
-	
-		if (gap1 && gap2) {
-			gap1.create();
-			gap2.create();
-			
-			var bridge = bridgeGaps(gap1.points, gap2.points);
-			
-			model1.paths[lineIds[0]] = bridge[0];
-			model1.paths[lineIds[1]] = bridge[1];
-		}
-	}
-		
 	var outer = new makerjs.models.RoundRectangle(w, h, outerRadius);
 
 	var bolts = new makerjs.models.BoltRectangle(w - 2 * rim, h - 2 * rim, boltRadius);
@@ -145,10 +65,6 @@ function card(w, h, outerRadius, rim, boltRadius, conn, logoOutline, logoScale, 
 	var tab = new makerjs.models.RoundRectangle(tabW, tabHeight, tabR);
 	hCenter(tab, rim - tabR);
 
-	delete tab.paths['BottomLeft'];
-	delete tab.paths['Bottom'];
-	delete tab.paths['BottomRight'];
-
 	var innerW = w - 2 * rim;
 	var innerH = h - 2 * rim;
 
@@ -158,12 +74,7 @@ function card(w, h, outerRadius, rim, boltRadius, conn, logoOutline, logoScale, 
 
 	this.units = makerjs.unitType.Millimeter;
 	this.paths = {};
-	this.models = {
-		logo: logo, text: text, outer: outer, bolts: bolts, inner: inner, tab: tab
-	};
 	
-	makerjs.model.originate(this);
-
 	var plus = {
 		origin: [(w - conn) / 2, (h - conn) / 2],
 		paths: {
@@ -179,35 +90,16 @@ function card(w, h, outerRadius, rim, boltRadius, conn, logoOutline, logoScale, 
 	}
 	
 	makerjs.model.rotate(plus, -logoAngle, plus.origin);
-	makerjs.model.originate(plus);
 
-	var bottom1 = new makerjs.paths.Line(inner.paths['Bottom'].origin, tab.paths['Left'].end);
-    var bottom2 = new makerjs.paths.Line(inner.paths['Bottom'].end, tab.paths['Right'].origin)
+	this.models = {
+		logo: logo, text: text, outer: outer, bolts: bolts, inner: inner, tab: tab, plus: plus
+	};
 
-	delete inner.paths['Bottom'];
+	makerjs.model.originate(this);
 
-    this.paths.bottom1 = bottom1; 
-	this.paths.bottom2 = bottom2;
-
- 	var p1 = trimLines(plus.paths.n1, 'origin', logo.models.leg2.models.b3.paths.Horizontal, 'end');
- 	var p2 = trimArcAndLine(logo.models.leg2.models.b3.paths.arc, 'endAngle', plus.paths.n2, 'origin');
-	var g1 = gap(inner.paths, 'Top', [plus.paths.n1, plus.paths.n2]);
-
-	if (p1 && p2 && g1) {
-		p1.create();
-		p2.create();
-		g1.create();
-		var b1 = bridgeGaps([p1.point, p2.point], g1.points);
-		inner.paths['n1'] = b1[0];
-		inner.paths['n2'] = b1[1];	
-	} else {
-		gapAndBridge(inner, 'Top', logo.models.leg2.models.b3, 'Horizontal', plus, ['n1', 'n2']);	
-	}
-	
-	gapAndBridge(tab, 'Top', logo, 'outBottom', plus, ['s1', 's2']);
-	gapAndBridge(inner, 'Left', logo, 'outHome', plus, ['w1', 'w2']);
-	gapAndBridge(inner, 'Right', logo.models.leg3.models.b3, 'Vertical', plus, ['e1', 'e2']);
-
+	makerjs.model.combine(tab, inner, true, false, false, true);
+	makerjs.model.combine(plus, { models: { inner: inner, tab: tab} }, true, false, false, true);
+	makerjs.model.combine(plus, logo.models.outline, false, true, false, true);
 }
 
 card.metaParameters = [
